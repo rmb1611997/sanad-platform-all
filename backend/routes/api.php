@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\AdminDashboardController;
+use App\Http\Controllers\ManualActivationController;
 use App\Http\Controllers\AnnouncementController;
 use App\Http\Controllers\BroadcastNotificationController;
 use App\Http\Controllers\CenterCodeController;
@@ -478,6 +479,10 @@ Route::prefix('v1')->group(function (): void {
             Route::get('/dashboard', [AdminDashboardController::class, 'stats'])
                 ->name('dashboard');
 
+            Route::post('/manual-activations', [ManualActivationController::class, 'store'])
+                ->middleware('employee.permission:' . EmployeePermissions::ADMIN_MANUAL_ACTIVATION_MANAGE)
+                ->name('manual-activations.store');
+
             // ManageSubscriptions.tsx ("جداول الاشتراكات") — decision 10.40.
             Route::get('/subscriptions', [AdminDashboardController::class, 'subscriptions'])
                 ->middleware('employee.permission:' . EmployeePermissions::ADMIN_SUBSCRIPTIONS_MANAGE)
@@ -946,6 +951,8 @@ Route::prefix('v1')->group(function (): void {
             ->name('lessons.progress.show');
         Route::post('/lessons/{id}/progress', [LessonController::class, 'saveProgress'])
             ->name('lessons.progress.store');
+        Route::post('/lessons/{id}/watch-sessions', [LessonController::class, 'recordWatchSession'])
+            ->name('lessons.watch-sessions.store');
     });
 
     /*

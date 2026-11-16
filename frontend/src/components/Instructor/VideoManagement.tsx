@@ -31,6 +31,23 @@ import {
 
 type VideoAction = 'add' | 'edit' | 'delete';
 
+const splitDuration = (totalSeconds: number) => {
+  const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  return {
+    hours: String(Math.floor(safeSeconds / 3600)),
+    minutes: String(Math.floor((safeSeconds % 3600) / 60)),
+    seconds: String(safeSeconds % 60),
+  };
+};
+
+const joinDuration = (hours: string, minutes: string, seconds: string) =>
+  (Math.max(0, Number(hours) || 0) * 3600) +
+  (Math.max(0, Number(minutes) || 0) * 60) +
+  Math.max(0, Number(seconds) || 0);
+
+const isValidDurationPart = (value: string) =>
+  value.trim() === '' || (/^\d+$/.test(value) && Number(value) <= 59);
+
 interface ActionDef {
   id: VideoAction;
   icon: LucideIcon;
@@ -290,7 +307,9 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
   const [addGroupId, setAddGroupId] = useState('');
   const [addTitle, setAddTitle] = useState('');
   const [addDescription, setAddDescription] = useState('');
-  const [addDuration, setAddDuration] = useState('');
+  const [addDurationHours, setAddDurationHours] = useState('0');
+  const [addDurationMinutes, setAddDurationMinutes] = useState('');
+  const [addDurationSeconds, setAddDurationSeconds] = useState('0');
   const [addProvider, setAddProvider] = useState<'Bunny' | 'YouTube' | 'Vimeo'>('YouTube');
   const [addUrl, setAddUrl] = useState('');
   const [addHasThumbnail, setAddHasThumbnail] = useState(false);
@@ -343,7 +362,9 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
   const [editVideoId, setEditVideoId] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
-  const [editDuration, setEditDuration] = useState('');
+  const [editDurationHours, setEditDurationHours] = useState('0');
+  const [editDurationMinutes, setEditDurationMinutes] = useState('0');
+  const [editDurationSeconds, setEditDurationSeconds] = useState('0');
   const [editProvider, setEditProvider] = useState<'Bunny' | 'YouTube' | 'Vimeo'>('YouTube');
   const [editUrl, setEditUrl] = useState('');
   const [editHasThumbnail, setEditHasThumbnail] = useState(false);
@@ -386,7 +407,10 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
     if (selectedVideo) {
       setEditTitle(selectedVideo.title);
       setEditDescription(selectedVideo.description || '');
-      setEditDuration(selectedVideo.duration !== undefined ? String(selectedVideo.duration) : '');
+      const durationParts = splitDuration(Number(selectedVideo.duration || 0));
+      setEditDurationHours(durationParts.hours);
+      setEditDurationMinutes(durationParts.minutes);
+      setEditDurationSeconds(durationParts.seconds);
       setEditProvider((selectedVideo.provider as "YouTube" | "Vimeo" | "Bunny") || 'YouTube');
       setEditUrl(selectedVideo.url || '');
       setEditThumbnailUrl(selectedVideo.thumbnailUrl || '');
@@ -399,7 +423,9 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
     } else {
       setEditTitle('');
       setEditDescription('');
-      setEditDuration('');
+      setEditDurationHours('0');
+      setEditDurationMinutes('0');
+      setEditDurationSeconds('0');
       setEditProvider('YouTube');
       setEditUrl('');
       setEditThumbnailUrl('');
@@ -497,7 +523,9 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
   // Handlers
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!addCourseId || !addGroupId || !addTitle.trim() || !addUrl.trim() || !addDuration.trim()) {
+    const durationInSeconds = joinDuration(addDurationHours, addDurationMinutes, addDurationSeconds);
+    if (!addCourseId || !addGroupId || !addTitle.trim() || !addUrl.trim() || durationInSeconds <= 0 ||
+        !isValidDurationPart(addDurationMinutes) || !isValidDurationPart(addDurationSeconds)) {
       triggerFeedback('يرجى ملء جميع الحقول الإلزامية', 'error');
       return;
     }
@@ -517,7 +545,8 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
         description: addDescription.trim(),
         url: addUrl.trim(),
         provider: addProvider,
-        duration: Number(addDuration.trim()),
+        // Convert the entered hours, minutes, and seconds to the API's total-seconds format.
+        duration: durationInSeconds,
         thumbnailUrl,
         isFree: addIsFree,
         startDate: addStartDate || undefined,
@@ -533,7 +562,9 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
       // Reset Add Fields
       setAddTitle('');
       setAddDescription('');
-      setAddDuration('');
+      setAddDurationHours('0');
+      setAddDurationMinutes('');
+      setAddDurationSeconds('0');
       setAddUrl('');
       setAddHasThumbnail(false);
       setAddThumbnailUrl('');
@@ -554,7 +585,9 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editVideoId || !editTitle.trim() || !editUrl.trim() || !editDuration.trim()) {
+    const durationInSeconds = joinDuration(editDurationHours, editDurationMinutes, editDurationSeconds);
+    if (!editVideoId || !editTitle.trim() || !editUrl.trim() || durationInSeconds <= 0 ||
+        !isValidDurationPart(editDurationMinutes) || !isValidDurationPart(editDurationSeconds)) {
       triggerFeedback('يرجى ملء جميع الحقول الإلزامية', 'error');
       return;
     }
@@ -572,7 +605,8 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
         description: editDescription.trim(),
         url: editUrl.trim(),
         provider: editProvider,
-        duration: Number(editDuration.trim()),
+        // Convert the entered hours, minutes, and seconds to the API's total-seconds format.
+        duration: durationInSeconds,
         thumbnailUrl,
         isFree: editIsFree,
         startDate: editStartDate || undefined,
@@ -795,22 +829,21 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
                     </FormField>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField required label="مدة الفيديو (بالدقائق)">
-                        {({ id }) => (
-                          <Input
-                            id={id}
-                            size="lg"
-                            type="number"
-                            min="1"
-                            value={addDuration}
-                            onChange={(e) => setAddDuration(e.target.value)}
-                            placeholder="مثال: 45"
-                            className="font-bold text-left"
-                            dir="ltr"
-                            required
-                          />
-                        )}
-                      </FormField>
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">مدة الفيديو</label>
+                        <div className="grid grid-cols-3 gap-3" dir="rtl">
+                          <FormField label="ساعات">
+                            {({ id }) => <Input id={id} size="lg" type="number" min="0" value={addDurationHours} onChange={(e) => setAddDurationHours(e.target.value)} placeholder="0" className="font-bold text-center" dir="ltr" />}
+                          </FormField>
+                          <FormField label="دقائق">
+                            {({ id }) => <Input id={id} size="lg" type="number" min="0" max="59" value={addDurationMinutes} onChange={(e) => setAddDurationMinutes(e.target.value)} placeholder="0" className="font-bold text-center" dir="ltr" />}
+                          </FormField>
+                          <FormField label="ثواني">
+                            {({ id }) => <Input id={id} size="lg" type="number" min="0" max="59" value={addDurationSeconds} onChange={(e) => setAddDurationSeconds(e.target.value)} placeholder="0" className="font-bold text-center" dir="ltr" />}
+                          </FormField>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2">أدخل المدة بالساعات والدقائق والثواني. مثال: 30 دقيقة = 0 ساعة، 30 دقيقة، 0 ثانية.</p>
+                      </div>
 
                       {/*
                         Provider picker. The three option VALUES are the exact
@@ -1119,21 +1152,21 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
                       </FormField>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField required label="مدة الفيديو (بالدقائق)">
-                          {({ id }) => (
-                            <Input
-                              id={id}
-                              size="lg"
-                              type="number"
-                              min="1"
-                              value={editDuration}
-                              onChange={(e) => setEditDuration(e.target.value)}
-                              className="font-bold text-left"
-                              dir="ltr"
-                              required
-                            />
-                          )}
-                        </FormField>
+                        <div className="md:col-span-2">
+                          <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">مدة الفيديو</label>
+                          <div className="grid grid-cols-3 gap-3" dir="rtl">
+                            <FormField label="ساعات">
+                              {({ id }) => <Input id={id} size="lg" type="number" min="0" value={editDurationHours} onChange={(e) => setEditDurationHours(e.target.value)} placeholder="0" className="font-bold text-center" dir="ltr" />}
+                            </FormField>
+                            <FormField label="دقائق">
+                              {({ id }) => <Input id={id} size="lg" type="number" min="0" max="59" value={editDurationMinutes} onChange={(e) => setEditDurationMinutes(e.target.value)} placeholder="0" className="font-bold text-center" dir="ltr" />}
+                            </FormField>
+                            <FormField label="ثواني">
+                              {({ id }) => <Input id={id} size="lg" type="number" min="0" max="59" value={editDurationSeconds} onChange={(e) => setEditDurationSeconds(e.target.value)} placeholder="0" className="font-bold text-center" dir="ltr" />}
+                            </FormField>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-2">أدخل المدة بالساعات والدقائق والثواني.</p>
+                        </div>
 
                         {/* Same three provider values as the Add tab — see note there. */}
                         <FormField required label="مزود الفيديو">
@@ -1416,7 +1449,7 @@ export default function VideoManagement({ courses = [] }: VideoManagementProps) 
                   <div className="p-6 rounded-panel border border-rose-200 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20 mt-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="space-y-1 text-center sm:text-right min-w-0">
                       <h4 className="text-base font-black text-slate-900 dark:text-white">{selectedVideoToDelete.title}</h4>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 font-bold">المزود: {selectedVideoToDelete.provider} • المدة: {selectedVideoToDelete.duration} دقيقة</p>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 font-bold">المزود: {selectedVideoToDelete.provider} • المدة: {Math.round(Number(selectedVideoToDelete.duration || 0) / 60)} دقيقة</p>
                     </div>
 
                     {!showDeleteConfirm ? (
